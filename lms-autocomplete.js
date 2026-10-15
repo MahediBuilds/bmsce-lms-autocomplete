@@ -129,7 +129,7 @@
   }
 
   // ---------- walker ----------
-  let running = false, stopRequested = false;
+  let running = false, stopRequested = false, lastState = 'idle', lastStats = null;
 
   async function goToFirstLesson() {
     if (onLessonPage()) {
@@ -147,7 +147,7 @@
 
   async function run() {
     const target = clampTarget();
-    running = true; stopRequested = false;
+    running = true; stopRequested = false; lastState = 'running';
     startB.disabled = true; stopB.disabled = false; input.disabled = true;
     stateEl.textContent = 'Running…';
     write('INFO', `Started, target ${target}%`);
@@ -195,7 +195,7 @@
       stats.errors++; reason = 'error'; write('ERR', `Unexpected error: ${e.message}`);
     } finally {
       write('INFO', `Done. Marked ${stats.marked}, already complete ${stats.alreadyDone}, skipped ${stats.skipped}, errors ${stats.errors}`);
-      running = false;
+      running = false; lastState = reason; lastStats = stats;
       startB.disabled = false; stopB.disabled = true; input.disabled = false;
       stateEl.textContent = { target: 'Target reached ✓', stopped: 'Stopped', error: 'Error', finished: 'Finished' }[reason];
       refresh();
@@ -213,7 +213,21 @@
     clearInterval(refreshTimer); root.remove(); delete window.__lmsAuto;
   });
 
-  window.__lmsAuto = { show: () => root.scrollIntoView(), log, downloadLog };
+  // Programmatic API (used by automation such as Claude in Chrome; see CLAUDE.md).
+  window.__lmsAuto = {
+    show: () => root.scrollIntoView(),
+    log,
+    downloadLog,
+    start: (target) => { if (running) return 'already running'; if (target) input.value = target; run(); return 'started'; },
+    stop: () => { stopRequested = true; return 'stopping'; },
+    status: () => ({
+      state: lastState, // idle | running | target | stopped | error | finished
+      progress: progress(),
+      target: clampTarget(),
+      stats: lastStats,
+      lastLines: log.slice(-5).map((e) => `${e.level} ${e.msg}`),
+    }),
+  };
   refresh();
   write('INFO', 'Ready. Choose a target % and press Start.');
 })();
