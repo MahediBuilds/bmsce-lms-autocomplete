@@ -19,7 +19,7 @@ target.
 - 📊 **Live panel:** a progress bar with a target marker, the current status, and Start and Stop buttons.
 - 📝 **Logging:** a colour-coded log in the panel and the console. **Save log** downloads it as a `.log` file.
 - 🔁 **Safe to re-run:** lessons that are already complete are skipped.
-- 🧭 **Starts from the beginning:** it always begins at the first lesson, so nothing is missed.
+- 🧭 **Picks up where you left off:** it jumps straight to your first unfinished lesson. If it reaches the end with lessons still open earlier in the course (for example newly added ones), it goes back for them.
 - 🐢 **Polite:** it waits between actions so it doesn't hammer the server.
 - 📦 **Zero setup:** no extensions, installs or accounts. Paste the script and go.
 - 🤖 **Works with Claude:** includes a [`CLAUDE.md`](CLAUDE.md) so Claude (with Claude in Chrome) can run it for you.
@@ -63,7 +63,7 @@ On each lesson page:
 | The page shows | The script |
 |---|---|
 | **Mark Complete** | clicks it. The LMS saves progress and opens the next lesson. |
-| **Continue** (already done) | logs `SKIP` and clicks **Next**. |
+| **Continue** or **Course Complete** (already done) | logs `SKIP` and clicks **Next**. |
 | Neither (for example a quiz) | logs `SKIP` and clicks **Next**. |
 | No **Next** button | stops, because it has reached the end of the course. |
 

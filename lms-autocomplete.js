@@ -25,7 +25,7 @@
   const findBtn = (pred) => [...document.querySelectorAll('main button')].find((b) => pred(clean(b.innerText)));
   const markBtn = () => findBtn((t) => t === 'Mark Complete');
   const nextBtn = () => findBtn((t) => t.startsWith('Next'));
-  const doneBtn = () => findBtn((t) => t === 'Continue');
+  const doneBtn = () => findBtn((t) => t === 'Continue' || t === 'Course Complete'); // the last lesson says "Course Complete"
   const title = () => clean(document.querySelector('main h1')?.innerText) || '(untitled)';
   const onLessonPage = () => /\/courses\/[^/]+\/lessons\/[^/]+/.test(location.pathname);
   const progress = () => {
@@ -131,18 +131,24 @@
   // ---------- walker ----------
   let running = false, stopRequested = false, lastState = 'idle', lastStats = null;
 
-  async function goToFirstLesson() {
-    if (onLessonPage()) {
-      // Jump back to the start of the course so earlier lessons are not missed.
-      const back = [...document.querySelectorAll('main a, main button')].find((el) => clean(el.innerText) === 'Back to Course');
-      if (back) { back.click(); await waitFor(() => !onLessonPage()); await sleep(1500); }
+  // The lesson sidebar has a "Continue: <lesson>" button that opens the first lesson not yet completed.
+  const resumeBtn = () => [...document.querySelectorAll('main button, main a')].find((el) => /^Continue:/i.test(clean(el.innerText)));
+
+  async function goToFirstIncomplete() {
+    if (!onLessonPage()) {
+      // On the course page: open any lesson so the sidebar (with the resume button) is available.
+      const any = await waitFor(() => [...document.querySelectorAll('main a[href*="/lessons/"]')]
+        .find((a) => /\/lessons\/[^/?#]+/.test(a.getAttribute('href'))));
+      if (!any) return false;
+      any.click(); // client-side navigation keeps this script alive
+      if (!(await waitFor(onLessonPage))) return false;
     }
-    // First real lesson link in the course outline (skip the "Content" tab and "Continue" shortcuts).
-    const first = await waitFor(() => [...document.querySelectorAll('main a[href*="/lessons/"]')]
-      .find((a) => /\/lessons\/[^/?#]+/.test(a.getAttribute('href')) && !/^continue/i.test(clean(a.innerText))));
-    if (!first) return false;
-    first.click(); // client-side navigation keeps this script alive
-    return !!(await waitFor(onLessonPage));
+    const resume = await waitFor(resumeBtn, 5000);
+    if (!resume) return true; // nothing to resume: walk from the current lesson
+    const before = location.pathname;
+    resume.click();
+    await waitFor(() => location.pathname !== before, 5000);
+    return onLessonPage();
   }
 
   async function run() {
@@ -155,9 +161,11 @@
     const stats = { marked: 0, alreadyDone: 0, skipped: 0, errors: 0 };
     let reason = 'finished';
     try {
-      if (!(await goToFirstLesson())) { write('ERR', 'Could not find a lesson link. Open a course page and try again.'); reason = 'error'; return; }
+      if (!(await goToFirstIncomplete())) { write('ERR', 'Could not find a lesson link. Open a course page and try again.'); reason = 'error'; return; }
+      write('INFO', `Resuming at first incomplete lesson: ${title()}`);
 
       const seen = new Set();
+      let passes = 1;
       for (let step = 0; step < MAX_STEPS; step++) {
         if (stopRequested) { reason = 'stopped'; write('INFO', 'Stopped by user'); break; }
         await waitFor(() => markBtn() || nextBtn() || doneBtn());
@@ -186,7 +194,20 @@
         }
 
         const nb = nextBtn();
-        if (!nb) { write('INFO', 'Reached the last lesson of the course'); break; }
+        if (!nb) {
+          // End of course. Lessons added earlier in the course may still be open, so jump back to them.
+          const resume = resumeBtn();
+          if (passes < 5 && resume) {
+            passes++;
+            resume.click();
+            await waitFor(() => location.pathname !== path, 5000);
+            await waitFor(() => markBtn() || nextBtn() || doneBtn());
+            await sleep(700);
+            if (markBtn() && !seen.has(location.pathname)) { write('INFO', `End reached, jumping back to: ${title()}`); continue; }
+          }
+          write('INFO', 'Reached the last lesson of the course');
+          break;
+        }
         nb.click();
         if (!(await waitFor(() => location.pathname !== path))) { stats.errors++; write('ERR', 'Next button did not open a new page, stopping'); break; }
         await sleep(DELAY_MS);

@@ -67,9 +67,9 @@ All of these are inside `<main>`. If the LMS changes them, update the helper fun
 | Purpose | How it's found |
 |---|---|
 | Mark lesson done | `<button>` with text exactly `Mark Complete` |
-| Lesson already done | `<button>` with text exactly `Continue` |
+| Lesson already done | `<button>` with text `Continue` (or `Course Complete` on the last lesson) |
 | Next lesson | `<button>` whose text starts with `Next` |
-| Back to the course outline | element with text `Back to Course` |
+| Jump to the first unfinished lesson | sidebar button whose text starts with `Continue:` |
 | Lesson title | `main h1` |
 | Progress (lesson page) | text `Course Progress <N>%` |
 | Progress (course page) | text `<N>% Your Progress` |
@@ -79,5 +79,5 @@ All of these are inside `<main>`. If the LMS changes them, update the helper fun
 - Keep it as one plain JavaScript file with no dependencies, so users can paste it straight into the console.
 - After changes, syntax-check it with
   `node -e "new Function(require('fs').readFileSync('lms-autocomplete.js','utf8'))"`.
-- Test against a course whose progress is already at or above the target. The run should open the first lesson and
+- Test against a course whose progress is already at or above the target. The run should open the first unfinished lesson and
   stop straight away, which tests navigation without marking anything new.
